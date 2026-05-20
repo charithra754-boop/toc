@@ -15,6 +15,7 @@ const btnStepBack = document.getElementById('btnStepBack')
 const btnStepForward = document.getElementById('btnStepForward')
 const btnPDA = document.getElementById('btnPDA')
 const btnParse = document.getElementById('btnParse')
+const candidatesList = document.getElementById('candidatesList')
 const btnTM = document.getElementById('btnTM')
 
 const tokensDiv = document.getElementById('tokens')
@@ -110,7 +111,24 @@ btnStepBack.addEventListener('click', ()=>{
 })
 
 btnParse.addEventListener('click', ()=>{
-  parseAndDraw(inputEl.value, document.getElementById('parseSvg'))
+  const res = parseAndDraw(inputEl.value, document.getElementById('parseSvg'))
+  // show candidates if present
+  if(res && res.candidates && res.candidates.length){
+    candidatesList.innerHTML = ''
+    res.variants.forEach((v, i)=>{
+      const btn = document.createElement('button')
+      btn.textContent = `${i+1}. ${v.type}`
+      btn.style.marginRight='8px'
+      btn.addEventListener('click', ()=>{
+        // re-render using chosen variant
+        const fakeAst = {type:v.type, slots:v.slots}
+        drawTree(document.getElementById('parseSvg'), {label:fakeAst.type, children: Object.keys(fakeAst.slots).map(k=>({label:k.toUpperCase(), children:[{label:fakeAst.slots[k]}]}))})
+      })
+      candidatesList.appendChild(btn)
+    })
+  } else {
+    candidatesList.textContent = '—'
+  }
 })
 
 btnPDA.addEventListener('click', ()=>{

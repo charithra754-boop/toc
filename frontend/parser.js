@@ -112,7 +112,15 @@ export function parse(text){
   // fallback: try all
   if(!res){ pos = 0; res = parseRemind() || parseSet() || parseGreet() }
 
-  return {ast:res, trace:stackTrace, consumed:pos, tokens, candidates}
+  // For pedagogy, also build simple alternate ASTs for detected candidates
+  const variants = candidates.map(c=>{
+    if(c==='Remind') return {type:'RemindCommand', slots:{action:'...', time:'...'}}
+    if(c==='Set') return {type:'SetCommand', slots:{time:'...'}}
+    if(c==='Greet') return {type:'Greet', slots:{word: tokens[0] || ''}}
+    return null
+  }).filter(Boolean)
+
+  return {ast:res, trace:stackTrace, consumed:pos, tokens, candidates, variants}
 }
 
 export function parseAndDraw(text, svg){
@@ -120,14 +128,14 @@ export function parseAndDraw(text, svg){
   const r = parse(text)
   if(!r.ast){
     drawTree(svg, {label:'ParseFailed', children:[{label:text}]})
-    return {ok:false}
+    return {ok:false, candidates:r.candidates, variants:r.variants}
   }
   // build simple tree
   const root = {label:r.ast.type, children:[]}
   const slots = r.ast.slots || {}
   for(const k of Object.keys(slots)) root.children.push({label:k.toUpperCase(), children:[{label:slots[k]}]})
   drawTree(svg, root)
-  return {ok:true, trace:r.trace, tokens:r.tokens}
+  return {ok:true, trace:r.trace, tokens:r.tokens, candidates:r.candidates, variants:r.variants}
 }
 
 function drawTree(svg, node, x=400, y=20, level=0){
