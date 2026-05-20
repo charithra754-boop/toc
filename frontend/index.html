@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>TOC Demo — Intent & Parsing Visualizer</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <h1>Theory of Computation — Interactive Demo</h1>
+    <p class="subtitle">Tokenizer • Automata • Parser • PDA • Turing (bounded)</p>
+  </header>
+
+  <main class="container">
+    <section class="left">
+      <label for="inputText">Input sentence</label>
+      <textarea id="inputText" rows="3">remind me to buy milk at 5 pm</textarea>
+      <div class="controls">
+        <button id="btnTokenize">Tokenize</button>
+        <button id="btnDFA">Run DFA</button>
+  <button id="btnStepBack">◀ Step</button>
+  <button id="btnStepForward">Step ▶</button>
+  <button id="btnPDA">Animate PDA</button>
+  <button id="btnParse">Parse</button>
+        <button id="btnTM">Run TM (demo)</button>
+      </div>
+      <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
+        <button class="example" data-ex="remind me to buy milk at 5 pm">Example: Remind</button>
+        <button class="example" data-ex="set alarm at 7">Example: Set</button>
+        <button class="example" data-ex="hi">Example: Greet</button>
+      </div>
+
+      <div class="panel" id="tokensPanel">
+        <h3>Tokens</h3>
+        <div id="tokens"></div>
+        <div id="tracePanel" style="margin-top:10px;color:var(--muted);font-size:13px">Trace: <span id="traceText">—</span></div>
+      </div>
+
+      <div class="panel" id="infoPanel">
+        <h3>Unit checklist</h3>
+        <ul class="checklist">
+          <li>Finite Automata (DFA/NFA)</li>
+          <li>Regular Expressions (tokenizer)</li>
+          <li>CFG & Parse Trees</li>
+          <li>CNF / Pumping lemma (demo)</li>
+          <li>Turing machine example</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="right">
+      <div class="panel viz" id="automatonViz">
+        <h3>Automaton</h3>
+        <svg id="automatonSvg" viewBox="0 0 800 300"></svg>
+      </div>
+
+      <div class="panel viz" id="parseViz">
+        <h3>Parse Tree</h3>
+        <svg id="parseSvg" viewBox="0 0 800 300"></svg>
+      </div>
+
+      <div class="panel viz" id="tmViz">
+        <h3>Turing Machine (demo)</h3>
+        <div id="tmArea">Tape and controls will appear here.</div>
+      </div>
+        
+        <div class="panel" id="theoryTools">
+          <h3>Theory tools</h3>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button id="btnCNF">CNF Converter</button>
+            <button id="btnPumping">Pumping Lemma Demo</button>
+            <button id="btnIntersect">CFL ∩ Regular</button>
+            <button id="btnPCP">Post Correspondence Problem (PCP)</button>
+          </div>
+          <div id="cnfPanel" style="margin-top:12px;color:var(--muted)"></div>
+          <div id="pumpingPanel" style="margin-top:12px;color:var(--muted)"></div>
+          <div id="intersectPanel" style="margin-top:12px;color:var(--muted)"></div>
+          <div id="pcpPanel" style="margin-top:12px;color:var(--muted)"></div>
+        </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <small>Designed to strictly follow the Theory of Computation syllabus. No ML, no external APIs.</small>
+  </footer>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Intent-aware Parser — ToC Demo</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div id="app">
+      <header class="app-header">
+        <div class="title">Intent-aware Parser — Theory of Computation Demo</div>
+        <div class="meta">Course: Theory of Computation • Project Demo</div>
+      </header>
+
+      <main class="container">
+        <section class="left-panel">
+          <div class="card">
+            <label for="inputText">Enter a command</label>
+            <textarea id="inputText" placeholder="e.g. remind me to buy milk at 5 pm"></textarea>
+            <div class="controls">
+              <button id="btnTokenize">Tokenize</button>
+              <button id="btnRecognize">Recognize Intent</button>
+              <button id="btnParse">Parse</button>
+              <button id="btnPDA">Show PDA Steps</button>
+            </div>
+          </div>
+
+          <div class="card small">
+            <div class="card-title">Extracted Slots</div>
+            <div id="slots" class="slots">— none —</div>
+          </div>
+
+          <div class="card small">
+            <div class="card-title">Syllabus linkage</div>
+            <ul class="syllabus-list">
+              <li>Unit I: DFA/NFA — intent recognition</li>
+              <li>Unit II: Regex — tokenization</li>
+              <li>Unit III: CFG/PDA — parsing & stack</li>
+              <li>Unit IV: CNF/Pumping Lemma — short demos</li>
+              <li>Unit V: TM/Undecidability — toy visualizer</li>
+            </ul>
+          </div>
+        </section>
+
+        <section class="right-panel">
+          <div class="viz card">
+            <div class="viz-header">
+              <div class="viz-title">Visualization</div>
+              <div class="viz-controls">
+                <button id="vizDfa">DFA</button>
+                <button id="vizNfa">NFA</button>
+                <button id="vizParse">Parse Tree</button>
+                <button id="vizTm">Turing</button>
+              </div>
+            </div>
+            <div id="vizArea" class="viz-area">
+              <!-- SVG or canvases will be injected here -->
+            </div>
+            <div id="trace" class="trace">Interactive trace will appear here.</div>
+          </div>
+        </section>
+      </main>
+
+      <footer class="footer">Built for AI44 • demo scaffold — visuals: DFA, parse tree, PDA, TM</footer>
+    </div>
+
+    <script type="module" src="app.js"></script>
+  </body>
+</html>
