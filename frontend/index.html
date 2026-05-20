@@ -1,164 +1,157 @@
 <!doctype html>
 <html lang="en">
+
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>TOC Demo — Intent & Parsing Visualizer</title>
+  <title>CompuVIZ — Theory of Computation Visualizer</title>
+  <meta name="description"
+    content="Interactive Theory of Computation visualizer — tokenization, finite automata, parsing, and regex compilation." />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
+    rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
+
+  <!-- ── Top bar ── -->
   <header class="topbar">
-    <h1>Theory of Computation — Interactive Demo</h1>
-    <p class="subtitle">Tokenizer • Automata • Parser • PDA • Turing (bounded)</p>
+    <div class="topbar-left">
+      <h1>CompuVIZ</h1>
+      <span class="tagline">Theory of Computation Visualizer</span>
+    </div>
+    <nav class="tab-nav" id="tabNav">
+      <button class="tab active" data-tab="tab-tokenizer">🔤 Tokenizer & DFA</button>
+      <button class="tab" data-tab="tab-parser">🌳 Parser & PDA</button>
+      <button class="tab" data-tab="tab-regex">⚙ Regex Engine</button>
+    </nav>
   </header>
 
-  <main class="container">
-    <section class="left">
-      <label for="inputText">Input sentence</label>
-      <textarea id="inputText" rows="3">remind me to buy milk at 5 pm</textarea>
-      <div class="controls">
-        <button id="btnTokenize">Tokenize</button>
-        <button id="btnDFA">Run DFA</button>
-  <button id="btnStepBack">◀ Step</button>
-  <button id="btnStepForward">Step ▶</button>
-  <button id="btnPDA">Animate PDA</button>
-  <button id="btnParse">Parse</button>
-        <button id="btnTM">Run TM (demo)</button>
-      </div>
-      <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
-        <button class="example" data-ex="remind me to buy milk at 5 pm">Example: Remind</button>
-        <button class="example" data-ex="set alarm at 7">Example: Set</button>
-        <button class="example" data-ex="hi">Example: Greet</button>
-      </div>
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <!-- TAB 1: Tokenizer & DFA                                    -->
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <section class="tab-page active" id="tab-tokenizer">
+    <div class="split">
 
-      <div class="panel" id="tokensPanel">
-        <h3>Tokens</h3>
-        <div id="tokens"></div>
-        <div id="tracePanel" style="margin-top:10px;color:var(--muted);font-size:13px">Trace: <span id="traceText">—</span></div>
-      </div>
-
-      <div class="panel" id="infoPanel">
-        <h3>Unit checklist</h3>
-        <ul class="checklist">
-          <li>Finite Automata (DFA/NFA)</li>
-          <li>Regular Expressions (tokenizer)</li>
-          <li>CFG & Parse Trees</li>
-          <li>CNF / Pumping lemma (demo)</li>
-          <li>Turing machine example</li>
-        </ul>
-      </div>
-    </section>
-
-    <section class="right">
-      <div class="panel viz" id="automatonViz">
-        <h3>Automaton</h3>
-        <svg id="automatonSvg" viewBox="0 0 800 300"></svg>
-      </div>
-
-      <div class="panel viz" id="parseViz">
-        <h3>Parse Tree</h3>
-        <svg id="parseSvg" viewBox="0 0 800 300"></svg>
-        <div class="panel small" id="candidatesPanel" style="margin-top:10px">
-          <h4>Parse candidates</h4>
-          <div id="candidatesList">—</div>
-        </div>
-      </div>
-
-      <div class="panel viz" id="tmViz">
-        <h3>Turing Machine (demo)</h3>
-        <div id="tmArea">Tape and controls will appear here.</div>
-      </div>
-        
-        <div class="panel" id="theoryTools">
-          <h3>Theory tools</h3>
-          <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <button id="btnCNF">CNF Converter</button>
-            <button id="btnPumping">Pumping Lemma Demo</button>
-            <button id="btnIntersect">CFL ∩ Regular</button>
-            <button id="btnPCP">Post Correspondence Problem (PCP)</button>
+      <!-- Left: Input + Tokens -->
+      <div class="split-input">
+        <div class="card">
+          <label for="inputText">Enter a command</label>
+          <textarea id="inputText" rows="2" placeholder="e.g. remind me to buy milk at 5 pm">remind me to buy milk at 5 pm</textarea>
+          <div class="btn-row">
+            <button id="btnTokenize" class="btn-primary">Tokenize & Run DFA</button>
           </div>
-          <div id="cnfPanel" style="margin-top:12px;color:var(--muted)"></div>
-          <div id="pumpingPanel" style="margin-top:12px;color:var(--muted)"></div>
-          <div id="intersectPanel" style="margin-top:12px;color:var(--muted)"></div>
-          <div id="pcpPanel" style="margin-top:12px;color:var(--muted)"></div>
+          <div class="examples">
+            <button class="chip" data-ex="remind me to buy milk at 5 pm">remind me…</button>
+            <button class="chip" data-ex="set alarm at 7">set alarm…</button>
+            <button class="chip" data-ex="hello there">hello there</button>
+          </div>
         </div>
-    </section>
-  </main>
 
-  <footer class="footer">
-    <small>Designed to strictly follow the Theory of Computation syllabus. No ML, no external APIs.</small>
-  </footer>
+        <div class="card" id="tokensCard">
+          <h3>Tokens <span class="badge">Unit II</span></h3>
+          <p class="hint">Lexical analysis breaks input into classified tokens using regular expressions.</p>
+          <div id="tokens" class="token-list"></div>
+          <div class="trace-line">Trace: <span id="traceText">—</span></div>
+        </div>
+      </div>
+
+      <!-- Right: DFA Diagram -->
+      <div class="split-viz">
+        <div class="card viz-card">
+          <div class="viz-header">
+            <h3>DFA — Intent Recognition <span class="badge">Unit I</span></h3>
+            <button class="btn-icon" id="fullscreenDFA" title="Full screen">⛶</button>
+          </div>
+          <div class="viz-wrap" id="dfaWrap">
+            <svg id="automatonSvg" viewBox="0 0 800 300"></svg>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <!-- TAB 2: Parser & PDA                                       -->
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <section class="tab-page" id="tab-parser">
+    <div class="split">
+
+      <!-- Left: Input + PDA -->
+      <div class="split-input">
+        <div class="card">
+          <label for="parserInput">Enter a command to parse</label>
+          <textarea id="parserInput" rows="2" placeholder="e.g. remind me to buy milk at 5 pm">remind me to buy milk at 5 pm</textarea>
+          <div class="btn-row">
+            <button id="btnParse" class="btn-primary">Parse & Build Tree</button>
+            <button id="btnPDA" class="btn-secondary">Animate PDA</button>
+          </div>
+        </div>
+
+        <div class="card" id="pdaCard">
+          <h3>PDA Stack Trace <span class="badge">Unit III</span></h3>
+          <p class="hint">Pushdown automata use a stack to handle nested, context-free grammar structures.</p>
+          <div id="pdaArea" class="pda-area">Click <strong>"Animate PDA"</strong> to visualize the stack.</div>
+        </div>
+      </div>
+
+      <!-- Right: Parse Tree -->
+      <div class="split-viz">
+        <div class="card viz-card">
+          <div class="viz-header">
+            <h3>Parse Tree <span class="badge">Unit III</span></h3>
+            <button class="btn-icon" id="fullscreenParse" title="Full screen">⛶</button>
+          </div>
+          <div class="viz-wrap" id="parseWrap">
+            <svg id="parseSvg" viewBox="0 0 800 340"></svg>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <!-- TAB 3: Regex Engine (C++ / Python backend)                -->
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <section class="tab-page" id="tab-regex">
+    <div class="split">
+
+      <!-- Left: Regex Input -->
+      <div class="split-input">
+        <div class="card">
+          <label for="regexInput">Regular Expression</label>
+          <input type="text" id="regexInput" placeholder="e.g. a.b|c*" value="a.b|c*">
+          <div class="btn-row">
+            <button id="btnCompileRegex" class="btn-primary">Compile Regex</button>
+          </div>
+          <p class="hint" style="margin-top:.75rem">
+            Uses the <strong>C++ parsing engine</strong> (or Python fallback) to compile a regex into NFA → DFA → Minimised DFA.
+          </p>
+        </div>
+      </div>
+
+      <!-- Right: NFA / DFA / min-DFA -->
+      <div class="split-viz">
+        <div class="card viz-card">
+          <div class="viz-header">
+            <h3>Automaton Output <span class="badge">Unit I & II — Backend</span></h3>
+            <button class="btn-icon" id="fullscreenRegex" title="Full screen">⛶</button>
+          </div>
+          <div id="regexOutput" class="viz-wrap">
+            <p class="hint" style="padding:2rem">Click <strong>"Compile Regex"</strong> to generate automata.</p>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
 
   <script type="module" src="app.js"></script>
 </body>
-</html>
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Intent-aware Parser — ToC Demo</title>
-    <link rel="stylesheet" href="style.css" />
-  </head>
-  <body>
-    <div id="app">
-      <header class="app-header">
-        <div class="title">Intent-aware Parser — Theory of Computation Demo</div>
-        <div class="meta">Course: Theory of Computation • Project Demo</div>
-      </header>
 
-      <main class="container">
-        <section class="left-panel">
-          <div class="card">
-            <label for="inputText">Enter a command</label>
-            <textarea id="inputText" placeholder="e.g. remind me to buy milk at 5 pm"></textarea>
-            <div class="controls">
-              <button id="btnTokenize">Tokenize</button>
-              <button id="btnRecognize">Recognize Intent</button>
-              <button id="btnParse">Parse</button>
-              <button id="btnPDA">Show PDA Steps</button>
-            </div>
-          </div>
-
-          <div class="card small">
-            <div class="card-title">Extracted Slots</div>
-            <div id="slots" class="slots">— none —</div>
-          </div>
-
-          <div class="card small">
-            <div class="card-title">Syllabus linkage</div>
-            <ul class="syllabus-list">
-              <li>Unit I: DFA/NFA — intent recognition</li>
-              <li>Unit II: Regex — tokenization</li>
-              <li>Unit III: CFG/PDA — parsing & stack</li>
-              <li>Unit IV: CNF/Pumping Lemma — short demos</li>
-              <li>Unit V: TM/Undecidability — toy visualizer</li>
-            </ul>
-          </div>
-        </section>
-
-        <section class="right-panel">
-          <div class="viz card">
-            <div class="viz-header">
-              <div class="viz-title">Visualization</div>
-              <div class="viz-controls">
-                <button id="vizDfa">DFA</button>
-                <button id="vizNfa">NFA</button>
-                <button id="vizParse">Parse Tree</button>
-                <button id="vizTm">Turing</button>
-              </div>
-            </div>
-            <div id="vizArea" class="viz-area">
-              <!-- SVG or canvases will be injected here -->
-            </div>
-            <div id="trace" class="trace">Interactive trace will appear here.</div>
-          </div>
-        </section>
-      </main>
-
-      <footer class="footer">Built for AI44 • demo scaffold — visuals: DFA, parse tree, PDA, TM</footer>
-    </div>
-
-    <script type="module" src="app.js"></script>
-  </body>
 </html>

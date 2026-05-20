@@ -62,6 +62,13 @@ export function parse(text){
         stackTrace.push({op:'push', symbol:'TIME', at:pos})
         consume()
         const time = consume() || ''
+        // consume any trailing time modifier (am/pm)
+        if(peek() && /^(am|pm)$/i.test(peek())) {
+          const mod = consume()
+          stackTrace.push({op:'pop', symbol:'TIME', at:pos})
+          stackTrace.push({op:'pop', symbol:'Remind', at:pos})
+          return {type:'RemindCommand', slots:{action:action.join(' '), time: time + ' ' + mod}}
+        }
         stackTrace.push({op:'pop', symbol:'TIME', at:pos})
         stackTrace.push({op:'pop', symbol:'Remind', at:pos})
         return {type:'RemindCommand', slots:{action:action.join(' '), time}}
@@ -81,6 +88,13 @@ export function parse(text){
         stackTrace.push({op:'push', symbol:'TIME', at:pos})
         consume()
         const time = consume()||''
+        // consume trailing time modifier
+        if(peek() && /^(am|pm)$/i.test(peek())) {
+          const mod = consume()
+          stackTrace.push({op:'pop', symbol:'TIME', at:pos})
+          stackTrace.push({op:'pop', symbol:'Set', at:pos})
+          return {type:'SetCommand', slots:{time: time + ' ' + mod}}
+        }
         stackTrace.push({op:'pop', symbol:'TIME', at:pos})
         stackTrace.push({op:'pop', symbol:'Set', at:pos})
         return {type:'SetCommand', slots:{time}}
@@ -97,6 +111,50 @@ export function parse(text){
     return null
   }
 
+  function parseGeneric(){
+    const startPos = pos
+    stackTrace.push({op:'push', symbol:'Statement', at:pos})
+    
+    if (pos < tokens.length) {
+      stackTrace.push({op:'push', symbol:'VERB', at:pos})
+      const verb = consume()
+      stackTrace.push({op:'pop', symbol:'VERB', at:pos})
+      
+      const prepositions = new Set(['at', 'in', 'to', 'for', 'on', 'with', 'by', 'from', 'about', 'as', 'into', 'like', 'through', 'after', 'before']);
+      
+      // Collect object words
+      const objWords = []
+      stackTrace.push({op:'push', symbol:'OBJECT', at:pos})
+      while (pos < tokens.length && !prepositions.has(peek())) {
+        objWords.push(consume())
+      }
+      stackTrace.push({op:'pop', symbol:'OBJECT', at:pos})
+      
+      let prep = null
+      let detail = []
+      if (pos < tokens.length && prepositions.has(peek())) {
+        stackTrace.push({op:'push', symbol:'PREP_PHRASE', at:pos})
+        prep = consume()
+        while (pos < tokens.length) {
+          detail.push(consume())
+        }
+        stackTrace.push({op:'pop', symbol:'PREP_PHRASE', at:pos})
+      }
+      
+      stackTrace.push({op:'pop', symbol:'Statement', at:pos})
+      
+      const slots = {}
+      if (verb) slots.verb = verb
+      if (objWords.length > 0) slots.object = objWords.join(' ')
+      if (prep) slots.modifier = prep + (detail.length > 0 ? ' ' + detail.join(' ') : '')
+      
+      return {type:'GenericCommand', slots}
+    }
+    
+    pos = startPos
+    return null
+  }
+
   // detect candidates without mutating stackTrace
   const candidates = []
   if(checkRemind()) candidates.push('Remind')
@@ -109,8 +167,8 @@ export function parse(text){
   if(candidates.includes('Remind')) res = parseRemind()
   if(!res){ pos = 0; if(candidates.includes('Set')) res = parseSet() }
   if(!res){ pos = 0; if(candidates.includes('Greet')) res = parseGreet() }
-  // fallback: try all
-  if(!res){ pos = 0; res = parseRemind() || parseSet() || parseGreet() }
+  // fallback: try all including generic
+  if(!res){ pos = 0; res = parseRemind() || parseSet() || parseGreet() || parseGeneric() }
 
   // For pedagogy, also build simple alternate ASTs for detected candidates
   const variants = candidates.map(c=>{
@@ -127,150 +185,174 @@ export function parseAndDraw(text, svg){
   svg.innerHTML = ''
   const r = parse(text)
   if(!r.ast){
-    drawTree(svg, {label:'ParseFailed', children:[{label:text}]})
+    drawTree(svg, {label:'⚠ Parse Failed', children:[{label:`"${text}"`}], role:'error'})
     return {ok:false, candidates:r.candidates, variants:r.variants}
   }
-  // build simple tree
-  const root = {label:r.ast.type, children:[]}
+  // build rich tree from AST
+  const root = {label: r.ast.type, children:[], role:'root'}
   const slots = r.ast.slots || {}
-  for(const k of Object.keys(slots)) root.children.push({label:k.toUpperCase(), children:[{label:slots[k]}]})
+  for(const k of Object.keys(slots)){
+    const slotNode = {label: k.toUpperCase(), role:'nonterminal', children:[]}
+    // Split slot value into individual words for leaf nodes
+    const words = String(slots[k]).split(/\s+/).filter(Boolean)
+    words.forEach(w => {
+      slotNode.children.push({label: w, role:'terminal'})
+    })
+    root.children.push(slotNode)
+  }
   drawTree(svg, root)
+
+  // Add grammar rule annotation below the tree
+  addGrammarAnnotation(svg, r.ast)
+
   return {ok:true, trace:r.trace, tokens:r.tokens, candidates:r.candidates, variants:r.variants}
 }
 
-function drawTree(svg, node, x=400, y=20, level=0){
+// Colour palette for tree nodes by role
+const TREE_COLOURS = {
+  root:        { fill: '#e0f2fe', stroke: '#4f6ef7', text: '#0369a1' },
+  nonterminal: { fill: '#ede9fe', stroke: '#7c5cfc', text: '#5b21b6' },
+  terminal:    { fill: '#d1fae5', stroke: '#22c55e', text: '#065f46' },
+  error:       { fill: '#fee2e2', stroke: '#ef4444', text: '#991b1b' }
+}
+
+export function drawTree(svg, node, x, y, level){
   const ns = 'http://www.w3.org/2000/svg'
-  const gapX = 180
-  const gapY = 60
-  const box = document.createElementNS(ns,'g')
 
-  // wrap label into multiple lines (max chars per line)
-  const maxChars = 18
-  const words = String(node.label || '').split(/\s+/)
-  const lines = []
-  let cur = ''
-  words.forEach(w=>{
-    if((cur+' '+w).trim().length <= maxChars) cur = (cur+' '+w).trim()
-    else { if(cur) lines.push(cur); cur = w }
-  })
-  if(cur) lines.push(cur)
+  // First pass: compute layout (width of each subtree)
+  function computeWidth(n) {
+    if (!n.children || n.children.length === 0) return 120
+    let total = 0
+    n.children.forEach(c => { total += computeWidth(c) })
+    return Math.max(120, total)
+  }
 
-  const lineHeight = 16
-  const boxHeight = Math.max(28, lines.length * lineHeight + 8)
-  const rect = document.createElementNS(ns,'rect')
-  rect.setAttribute('x', x-60)
+  // If called at top-level, do layout pass first
+  if (x === undefined) {
+    const totalWidth = computeWidth(node)
+    const startX = totalWidth / 2
+    // Update viewBox to fit
+    const estimatedHeight = countDepth(node) * 90 + 120
+    svg.setAttribute('viewBox', `0 0 ${Math.max(totalWidth + 40, 400)} ${estimatedHeight}`)
+    drawTreeNode(svg, ns, node, startX, 30, 0, totalWidth)
+    return
+  }
+}
+
+function countDepth(node) {
+  if (!node.children || node.children.length === 0) return 1
+  return 1 + Math.max(...node.children.map(countDepth))
+}
+
+function drawTreeNode(svg, ns, node, x, y, level, availWidth) {
+  const gapY = 80
+  const colors = TREE_COLOURS[node.role] || TREE_COLOURS.nonterminal
+  const isLeaf = !node.children || node.children.length === 0
+
+  const g = document.createElementNS(ns, 'g')
+  g.style.opacity = '0'
+  g.style.animation = `nodeAppear 0.4s ease ${level * 0.12}s forwards`
+
+  // Node shape: rounded rect for non-terminals, pill for terminals
+  const labelText = String(node.label || '')
+  const textWidth = Math.max(60, labelText.length * 8 + 24)
+  const boxHeight = isLeaf ? 28 : 32
+  const rx = isLeaf ? 14 : 8
+
+  const rect = document.createElementNS(ns, 'rect')
+  rect.setAttribute('x', x - textWidth / 2)
   rect.setAttribute('y', y)
-  rect.setAttribute('width', 120)
+  rect.setAttribute('width', textWidth)
   rect.setAttribute('height', boxHeight)
-  rect.setAttribute('rx',6)
-  rect.setAttribute('fill','rgba(255,255,255,0.03)')
-  rect.setAttribute('stroke','rgba(255,255,255,0.06)')
-  box.appendChild(rect)
+  rect.setAttribute('rx', rx)
+  rect.setAttribute('fill', colors.fill)
+  rect.setAttribute('stroke', colors.stroke)
+  rect.setAttribute('stroke-width', level === 0 ? '2' : '1.5')
+  g.appendChild(rect)
 
-  const text = document.createElementNS(ns,'text')
+  // Label
+  const text = document.createElementNS(ns, 'text')
   text.setAttribute('x', x)
-  text.setAttribute('y', y + 12)
-  text.setAttribute('fill','#e6eef6')
-  text.setAttribute('font-size','12')
-  text.setAttribute('text-anchor','middle')
-  // append tspan lines
-  lines.forEach((ln,i)=>{
-    const tspan = document.createElementNS(ns,'tspan')
-    tspan.setAttribute('x', x)
-    tspan.setAttribute('dy', i===0 ? '0' : `${lineHeight}`)
-    tspan.textContent = ln
-    text.appendChild(tspan)
-  })
-  box.appendChild(text)
-  svg.appendChild(box)
+  text.setAttribute('y', y + boxHeight / 2)
+  text.setAttribute('fill', colors.text)
+  text.setAttribute('font-size', isLeaf ? '11' : '13')
+  text.setAttribute('font-weight', isLeaf ? '400' : '600')
+  text.setAttribute('text-anchor', 'middle')
+  text.setAttribute('dominant-baseline', 'central')
+  text.setAttribute('font-family', isLeaf ? "'JetBrains Mono', monospace" : "'DM Sans', sans-serif")
+  text.textContent = labelText.length > 18 ? labelText.slice(0, 16) + '…' : labelText
+  g.appendChild(text)
 
-  if(node.children && node.children.length){
+  svg.appendChild(g)
+
+  // Draw children
+  if (node.children && node.children.length > 0) {
     const childY = y + boxHeight + gapY
-    const startX = x - ((node.children.length-1)*gapX)/2
-    node.children.forEach((c,i)=>{
-      const cx = startX + i*gapX
-      const line = document.createElementNS(ns,'line')
-      line.setAttribute('x1', x)
-      line.setAttribute('y1', y + boxHeight)
-      line.setAttribute('x2', cx)
-      line.setAttribute('y2', childY)
-      line.setAttribute('stroke','rgba(200,220,255,0.2)')
-      line.setAttribute('stroke-width','1')
+    // Compute widths for each child
+    const childWidths = node.children.map(c => computeSubtreeWidth(c))
+    const totalChildWidth = childWidths.reduce((a, b) => a + b, 0)
+    const scaledWidths = childWidths.map(w => (w / totalChildWidth) * availWidth)
+
+    let startX = x - availWidth / 2
+    node.children.forEach((child, i) => {
+      const childCenterX = startX + scaledWidths[i] / 2
+      startX += scaledWidths[i]
+
+      // Connection line
+      const line = document.createElementNS(ns, 'path')
+      const midY = y + boxHeight + gapY * 0.4
+      const d = `M ${x} ${y + boxHeight} C ${x} ${midY} ${childCenterX} ${midY} ${childCenterX} ${childY}`
+      line.setAttribute('d', d)
+      line.setAttribute('stroke', 'rgba(0,217,255,0.15)')
+      line.setAttribute('stroke-width', '1.5')
+      line.setAttribute('fill', 'none')
+      line.style.opacity = '0'
+      line.style.animation = `nodeAppear 0.35s ease ${(level + 1) * 0.12}s forwards`
       svg.appendChild(line)
-      drawTree(svg, c, cx, childY, level+1)
+
+      drawTreeNode(svg, ns, child, childCenterX, childY, level + 1, scaledWidths[i])
     })
   }
 }
-// Very small grammar and parser for commands like: remind me to BUY at TIME
 
-export function parseCommand(text){
-  const tokens = text.match(/\S+/g) || [];
-  let i = 0;
-  function peek(){ return tokens[i] ? tokens[i].toLowerCase() : null; }
-  function eat(tok){ if(peek()===tok){ i++; return true } return false }
-
-  function parseRemind(){
-    const start = i;
-    if(eat('remind') || (peek()==='remindme')){
-      if(eat('me')){ }
-      if(eat('to')){
-        // rest until 'at' is action
-        const action = [];
-        while(peek() && peek() !== 'at') { action.push(tokens[i]); i++; }
-        let time = null;
-        if(eat('at')){
-          if(peek()) { time = tokens[i]; i++; }
-        }
-        return {type:'Remind', action: action.join(' '), time };
-      }
-    }
-    i = start; return null;
-  }
-
-  function parseSet(){
-    const start = i;
-    if(eat('set')){
-      // set alarm at TIME
-      if(eat('alarm')){ eat('at'); const time = peek(); if(time) { i++; return {type:'SetAlarm', time}; } }
-    }
-    i = start; return null;
-  }
-
-  const rootStart = i;
-  const r = parseRemind() || parseSet();
-  if(!r) return null;
-  // build simple AST + slots
-  const tree = { node: r.type, children: [] };
-  if(r.action) tree.children.push({node:'ACTION', value:r.action});
-  if(r.time) tree.children.push({node:'TIME', value:r.time});
-  const slots = { action: r.action || null, time: r.time || null };
-  return { tree, slots };
+function computeSubtreeWidth(node) {
+  if (!node.children || node.children.length === 0) return 120
+  let total = 0
+  node.children.forEach(c => { total += computeSubtreeWidth(c) })
+  return Math.max(120, total)
 }
 
-export function renderParseTree(container, tree){
-  const svgNS = 'http://www.w3.org/2000/svg';
-  const svg = document.createElementNS(svgNS,'svg'); svg.setAttribute('width','100%'); svg.setAttribute('height','100%');
-  const box = document.createElementNS(svgNS,'g'); box.setAttribute('transform','translate(40,40)'); svg.appendChild(box);
+// Add grammar derivation annotation below the tree
+function addGrammarAnnotation(svg, ast) {
+  const ns = 'http://www.w3.org/2000/svg'
+  const vb = svg.getAttribute('viewBox').split(' ').map(Number)
+  const annotY = vb[3] - 20
 
-  // simple vertical layout
-  const root = makeNode(tree.node, 220, 10); box.appendChild(root.g);
-  let y = 80;
-  tree.children.forEach((c, idx)=>{
-    const child = makeNode(c.node + (c.value?`: ${c.value}`:''), 120 + idx*180, y);
-    box.appendChild(child.g);
-    // connect
-    const line = document.createElementNS(svgNS,'line');
-    line.setAttribute('x1',220); line.setAttribute('y1',40); line.setAttribute('x2',120+idx*180+60); line.setAttribute('y2',y); line.setAttribute('stroke','rgba(255,255,255,0.06)');
-    box.appendChild(line);
-  });
-
-  container.appendChild(svg);
-
-  function makeNode(text,x,y){
-    const g = document.createElementNS(svgNS,'g'); g.setAttribute('transform',`translate(${x},${y})`);
-    const rect = document.createElementNS(svgNS,'rect'); rect.setAttribute('width','120'); rect.setAttribute('height','40'); rect.setAttribute('rx','10'); rect.setAttribute('fill','#051525'); rect.setAttribute('stroke','rgba(255,255,255,0.04)');
-    const t = document.createElementNS(svgNS,'text'); t.setAttribute('x','60'); t.setAttribute('y','24'); t.setAttribute('text-anchor','middle'); t.setAttribute('fill','#dff6ff'); t.setAttribute('font-size','12'); t.textContent = text;
-    g.appendChild(rect); g.appendChild(t);
-    return { g };
+  const rules = []
+  if (ast.type === 'RemindCommand') {
+    rules.push('Command → RemindCommand')
+    rules.push(`RemindCommand → "remind" "me" "to" ACTION "at" TIME`)
+    rules.push(`ACTION → ${ast.slots.action}`)
+    rules.push(`TIME → ${ast.slots.time}`)
+  } else if (ast.type === 'SetCommand') {
+    rules.push('Command → SetCommand')
+    rules.push(`SetCommand → "set" "alarm" "at" TIME`)
+    rules.push(`TIME → ${ast.slots.time}`)
+  } else if (ast.type === 'Greet') {
+    rules.push('Command → Greet')
+    rules.push(`Greet → "${ast.slots.word}"`)
+  } else if (ast.type === 'GenericCommand') {
+    rules.push('Command → GenericCommand')
+    rules.push('GenericCommand → VERB [OBJECT] [MODIFIER]')
   }
+
+  const ruleText = document.createElementNS(ns, 'text')
+  ruleText.setAttribute('x', vb[2] / 2)
+  ruleText.setAttribute('y', annotY)
+  ruleText.setAttribute('fill', '#475569')
+  ruleText.setAttribute('font-size', '10')
+  ruleText.setAttribute('text-anchor', 'middle')
+  ruleText.setAttribute('font-family', "'JetBrains Mono', ui-monospace, monospace")
+  ruleText.textContent = rules.join('  →  ')
+  svg.appendChild(ruleText)
 }

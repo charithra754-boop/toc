@@ -1,170 +1,235 @@
-// Very small DFA demo: looks for keywords to decide intent
-export function runDFA(text){
-  const t = text.toLowerCase()
-  const words = t.split(/\s+/).filter(Boolean)
-  const trace = []
-  // step 0: start
-  trace.push({step: 'start', state: 'q0', tokenIndex: -1})
-  for(let i=0;i<words.length;i++){
-    const w = words[i]
-    if(/\bremind\b/.test(w) || /remind/.test(w)) trace.push({step:w, state:'q1', tokenIndex:i})
-    else if(/\bset\b/.test(w) || /alarm/.test(w)) trace.push({step:w, state:'q2', tokenIndex:i})
-    else if(/\bhello\b|\bhi\b|\bhey\b/.test(w)) trace.push({step:w, state:'q3', tokenIndex:i})
-    else trace.push({step:w, state:'q0', tokenIndex:i})
-  }
-  const last = [...trace].reverse().find(t=>t.state!=='q0')
-  const intent = last ? (last.state==='q1'?'REMIND': last.state==='q2'?'SET':'GREET') : 'UNKNOWN'
-  return {intent, trace}
+// Dynamic DFA — builds states and transitions from the actual input tokens.
+// The automaton structure changes for every unique input.
+
+import { tokenize } from './tokenizer.js'
+import { computeForceLayout, computeEdgePaths } from './layout.js'
+
+// ─── DFA engine ──────────────────────────────────────────────
+// Build a DFA on the fly from the token stream.  Every token
+// creates a transition; keywords drive intent-bearing states,
+// numbers/words drive data-capture states.
+
+const STATE_COLOURS = {
+  start:   { fill: '#e0f2fe', stroke: '#4f6ef7' },
+  keyword: { fill: '#d1fae5', stroke: '#22c55e' },
+  data:    { fill: '#ede9fe', stroke: '#7c5cfc' },
+  accept:  { fill: '#fce7f3', stroke: '#ec4899' },
+  active:  { fill: '#bbf7d0', stroke: '#16a34a' }
 }
 
-export function drawAutomaton(svg, highlightId){
-  // simple static drawing: three nodes and transitions
-  svg.innerHTML = ''
-  const ns = 'http://www.w3.org/2000/svg'
-  const nodes = [
-    {id:'q0', x:80, y:140, label:'start'},
-    {id:'q1', x:320, y:60, label:'REMIND'},
-    {id:'q2', x:320, y:220, label:'SET'},
-    {id:'q3', x:560, y:140, label:'GREET'}
-  ]
-  // edges
-  const edges = [
-    {from:'q0', to:'q1', label:'remind'},
-    {from:'q0', to:'q2', label:'set/alarm'},
-    {from:'q0', to:'q3', label:'hi/hello'}
-  ]
+// Classify a token type → state role
+function tokenRole(tok) {
+  if (/^KEYWORD$/i.test(tok.type)) return 'keyword'
+  if (/^NUMBER|TIME$/i.test(tok.type)) return 'data'
+  return 'data'
+}
 
-  // draw edges
-  edges.forEach(e=>{
-    const f = nodes.find(n=>n.id===e.from)
-    const t = nodes.find(n=>n.id===e.to)
-    const line = document.createElementNS(ns,'path')
-    const d = `M ${f.x} ${f.y} C ${f.x+80} ${f.y} ${t.x-80} ${t.y} ${t.x} ${t.y}`
-    line.setAttribute('d',d)
-    line.setAttribute('stroke','rgba(200,220,255,0.6)')
-    line.setAttribute('fill','none')
-    line.setAttribute('stroke-width','2')
-    svg.appendChild(line)
-    const text = document.createElementNS(ns,'text')
-    text.setAttribute('x', (f.x+t.x)/2 )
-    text.setAttribute('y', (f.y+t.y)/2 -10)
-    text.setAttribute('fill','#9fb8d9')
-    text.setAttribute('font-size','12')
-    text.textContent = e.label
+export function runDFA(text) {
+  const tokens = tokenize(text)
+  const nodes = [{ id: 'q0', label: 'start', role: 'start' }]
+  const edges = []
+  const trace = [{ step: 'start', state: 'q0', tokenIndex: -1 }]
+
+  // Intent detection keywords
+  const intentKeywords = {
+    remind: 'REMIND', set: 'SET', alarm: 'SET',
+    hello: 'GREET', hi: 'GREET', hey: 'GREET'
+  }
+  let detectedIntent = 'UNKNOWN'
+
+  tokens.forEach((tok, i) => {
+    const stateId = `q${i + 1}`
+    const val = tok.value.toLowerCase()
+    const role = tokenRole(tok)
+
+    // If this is an intent-bearing keyword, mark it
+    if (intentKeywords[val]) {
+      detectedIntent = intentKeywords[val]
+      nodes.push({ id: stateId, label: detectedIntent, role: 'keyword' })
+    } else if (/^NUMBER|TIME$/i.test(tok.type)) {
+      nodes.push({ id: stateId, label: tok.value, role: 'data' })
+    } else {
+      nodes.push({ id: stateId, label: tok.value, role: 'data' })
+    }
+
+    const prevId = `q${i}`
+    edges.push({ from: prevId, to: stateId, label: `${tok.type}: ${tok.value}` })
+    trace.push({ step: `${tok.type}: ${tok.value}`, state: stateId, tokenIndex: i })
+  })
+
+  // Mark the last node as the accept state
+  if (nodes.length > 1) {
+    const last = nodes[nodes.length - 1]
+    last.role = 'accept'
+    last.label = detectedIntent !== 'UNKNOWN' ? `✓ ${detectedIntent}` : `✓ ${last.label}`
+  }
+
+  return { intent: detectedIntent, trace, nodes, edges }
+}
+
+// ─── SVG renderer ─────────────────────────────────────────────
+// Lays out nodes in a flowing left-to-right arc (with wrapping)
+// so the shape directly reflects the token chain.
+
+export function drawAutomaton(svg, highlightId, dfaResult) {
+  const ns = 'http://www.w3.org/2000/svg'
+
+  // If no DFA result, draw a placeholder
+  if (!dfaResult || !dfaResult.nodes || dfaResult.nodes.length <= 1) {
+    svg.innerHTML = ''
+    svg.removeAttribute('data-rendered')
+    const fallbackNodes = [
+      { id: 'q0', x: 100, y: 140, label: 'start', role: 'start' },
+      { id: 'q1', x: 320, y: 70,  label: 'REMIND', role: 'keyword' },
+      { id: 'q2', x: 320, y: 210, label: 'SET', role: 'keyword' },
+      { id: 'q3', x: 540, y: 140, label: 'GREET', role: 'keyword' }
+    ]
+    const fallbackEdges = [
+      { from: 'q0', to: 'q1', label: 'remind' },
+      { from: 'q0', to: 'q2', label: 'set / alarm' },
+      { from: 'q0', to: 'q3', label: 'hi / hello / hey' }
+    ]
+    const routed = computeEdgePaths(fallbackNodes, fallbackEdges, 34)
+    drawEdges(svg, ns, routed)
+    drawNodes(svg, ns, fallbackNodes, highlightId)
+    return
+  }
+
+  const nodes = dfaResult.nodes
+  const edges = dfaResult.edges
+
+  if (svg.getAttribute('data-rendered') === 'true') {
+    nodes.forEach(n => {
+      const circle = svg.querySelector(`#circle-${n.id}`)
+      if (!circle) return
+      const isHighlighted = highlightId && highlightId === n.id
+      const colors = isHighlighted ? STATE_COLOURS.active : (STATE_COLOURS[n.role] || STATE_COLOURS.data)
+      circle.setAttribute('fill', colors.fill)
+      circle.setAttribute('stroke', colors.stroke)
+      circle.setAttribute('stroke-width', isHighlighted ? '3' : '1.5')
+    })
+    return
+  }
+
+  svg.innerHTML = ''
+  svg.setAttribute('data-rendered', 'true')
+
+  const layout = computeForceLayout(nodes, edges, { iterations: 300, attraction: 0.5, repulsion: 1.5, k: 180 })
+  svg.setAttribute('viewBox', layout.viewBox)
+  svg.style.width = layout.width + 'px'
+  svg.style.height = layout.height + 'px'
+  if (svg.parentElement) svg.parentElement.style.overflow = 'auto'
+
+  const routedEdges = computeEdgePaths(nodes, edges, 34)
+  drawEdges(svg, ns, routedEdges)
+  drawNodes(svg, ns, nodes, highlightId)
+}
+
+function drawEdges(svg, ns, routedEdges) {
+  // Arrowhead marker definition
+  if (!svg.querySelector('#arrowhead')) {
+    const defs = document.createElementNS(ns, 'defs')
+    const marker = document.createElementNS(ns, 'marker')
+    marker.setAttribute('id', 'arrowhead')
+    marker.setAttribute('markerWidth', '8')
+    marker.setAttribute('markerHeight', '6')
+    marker.setAttribute('refX', '8')
+    marker.setAttribute('refY', '3')
+    marker.setAttribute('orient', 'auto')
+    const poly = document.createElementNS(ns, 'polygon')
+    poly.setAttribute('points', '0 0, 8 3, 0 6')
+    poly.setAttribute('fill', '#4f6ef7')
+    marker.appendChild(poly)
+    defs.appendChild(marker)
+    svg.insertBefore(defs, svg.firstChild)
+  }
+
+  routedEdges.forEach((e, i) => {
+    const path = document.createElementNS(ns, 'path')
+    path.setAttribute('d', e.pathD)
+    path.setAttribute('stroke', '#94a3b8')
+    path.setAttribute('fill', 'none')
+    path.setAttribute('stroke-width', '1.5')
+    path.setAttribute('marker-end', 'url(#arrowhead)')
+    path.style.animation = `nodeAppear 0.5s ease ${i * 0.05}s both`
+    svg.appendChild(path)
+
+    // Edge label
+    const text = document.createElementNS(ns, 'text')
+    text.setAttribute('x', e.labelX)
+    text.setAttribute('y', e.labelY)
+    text.setAttribute('fill', '#475569')
+    text.setAttribute('font-size', '10')
+    text.setAttribute('text-anchor', 'middle')
+    text.setAttribute('font-family', "'JetBrains Mono', ui-monospace, monospace")
+    // Truncate long labels
+    const lbl = e.label.length > 16 ? e.label.slice(0, 14) + '…' : e.label
+    text.textContent = lbl
+    text.style.animation = `nodeAppear 0.5s ease ${i * 0.05}s both`
     svg.appendChild(text)
   })
+}
 
-  // draw nodes
-  nodes.forEach(n=>{
-    const g = document.createElementNS(ns,'g')
-    const circle = document.createElementNS(ns,'circle')
+function drawNodes(svg, ns, nodes, highlightId) {
+  nodes.forEach(n => {
+    const g = document.createElementNS(ns, 'g')
+    g.style.cursor = 'default'
+
+    const circle = document.createElementNS(ns, 'circle')
+    circle.setAttribute('id', `circle-${n.id}`)
     circle.setAttribute('cx', n.x)
     circle.setAttribute('cy', n.y)
-    circle.setAttribute('r', 36)
-    // highlight selected node
-    if(highlightId && highlightId===n.id){
-      circle.setAttribute('fill','#6ee7b7')
-      circle.setAttribute('stroke','#16a34a')
-    } else {
-      circle.setAttribute('fill','rgba(255,255,255,0.03)')
-      circle.setAttribute('stroke','rgba(255,255,255,0.06)')
-    }
-    circle.setAttribute('stroke-width','2')
+    circle.setAttribute('r', 34)
+
+    const colors = highlightId && highlightId === n.id
+      ? STATE_COLOURS.active
+      : STATE_COLOURS[n.role] || STATE_COLOURS.data
+
+    circle.setAttribute('fill', colors.fill)
+    circle.setAttribute('stroke', colors.stroke)
+    circle.setAttribute('stroke-width', highlightId === n.id ? '3' : '1.5')
     g.appendChild(circle)
-    const label = document.createElementNS(ns,'text')
+
+    // Double circle for accept states
+    if (n.role === 'accept') {
+      const inner = document.createElementNS(ns, 'circle')
+      inner.setAttribute('cx', n.x)
+      inner.setAttribute('cy', n.y)
+      inner.setAttribute('r', 28)
+      inner.setAttribute('fill', 'none')
+      inner.setAttribute('stroke', colors.stroke)
+      inner.setAttribute('stroke-width', '1')
+      inner.setAttribute('stroke-dasharray', '3 2')
+      g.appendChild(inner)
+    }
+
+    // Label (multi-line if needed)
+    const label = document.createElementNS(ns, 'text')
     label.setAttribute('x', n.x)
-    label.setAttribute('y', n.y+4)
-    label.setAttribute('fill','#e6eef6')
-    label.setAttribute('text-anchor','middle')
-    label.setAttribute('font-size','12')
-    label.textContent = n.label
+    label.setAttribute('y', n.y)
+    label.setAttribute('fill', '#1e293b')
+    label.setAttribute('text-anchor', 'middle')
+    label.setAttribute('dominant-baseline', 'central')
+    label.setAttribute('font-size', '12')
+    label.setAttribute('font-family', "'DM Sans', sans-serif")
+    label.setAttribute('font-weight', '600')
+
+    // Truncate long labels
+    const displayLabel = n.label.length > 10 ? n.label.slice(0, 9) + '…' : n.label
+    label.textContent = displayLabel
     g.appendChild(label)
+
+    // Small state ID below
+    const idLabel = document.createElementNS(ns, 'text')
+    idLabel.setAttribute('x', n.x)
+    idLabel.setAttribute('y', n.y + 46)
+    idLabel.setAttribute('fill', '#94a3b8')
+    idLabel.setAttribute('text-anchor', 'middle')
+    idLabel.setAttribute('font-size', '9')
+    idLabel.setAttribute('font-family', "'JetBrains Mono', monospace")
+    idLabel.textContent = n.id
+    g.appendChild(idLabel)
+
     svg.appendChild(g)
   })
-}
-// Lightweight tokenizer and DFA example for demo
-export function tokenize(text){
-  const patterns = [
-    ['NUMBER', /\b\d+(?:[:.]?\d+)?\b/],
-    ['TIME', /\b\d+\s*(?:am|pm)\b/i],
-    ['KEYWORD', /\b(remind|set|alarm|at|to|buy|me)\b/i],
-    ['WORD', /\b[a-zA-Z]+\b/],
-    ['SPACE', /\s+/],
-  ];
-  const tokens = [];
-  let i = 0;
-  while(i < text.length){
-    let matched = false;
-    for(const [type, re] of patterns){
-      re.lastIndex = 0;
-      const slice = text.slice(i);
-      const m = slice.match(re);
-      if(m && m.index === 0){
-        if(type !== 'SPACE') tokens.push({type, value:m[0]});
-        i += m[0].length; matched = true; break;
-      }
-    }
-    if(!matched){ tokens.push({type:'CHAR', value:text[i]}); i++; }
-  }
-  return tokens;
-}
-
-// Very small DFA for intent recognition: recognizes if command contains remind/set
-const dfa = {
-  states: ['start','remind','set','other','accept_remind','accept_set'],
-  start: 'start',
-  accept: ['accept_remind','accept_set']
-};
-
-export function recognizeIntent(text){
-  const words = text.toLowerCase().split(/\s+/);
-  const trace = [];
-  let state = 'start'; trace.push(state);
-  if(words.includes('remind') || words.includes('remindme') || words.includes('remind,')){
-    state = 'accept_remind';
-  } else if(words.includes('set') || words.includes('alarm')){
-    state = 'accept_set';
-  } else {
-    state = 'other';
-  }
-  trace.push(state);
-  const intent = state === 'accept_remind' ? 'REMIND' : (state === 'accept_set' ? 'SET' : 'UNKNOWN');
-  return { intent, confidence: state==='other'?0.45:0.98, trace };
-}
-
-// render a tiny DFA visualization into container; trace is array of state ids to highlight
-export function renderDFA(container, trace=[]){
-  const svgNS = 'http://www.w3.org/2000/svg';
-  const svg = document.createElementNS(svgNS,'svg');
-  svg.setAttribute('width','100%');
-  svg.setAttribute('height','100%');
-  svg.setAttribute('viewBox','0 0 600 400');
-
-  const positions = {
-    start: [120,200], remind:[300,120], set:[300,280], other:[480,200], accept_remind:[300,80], accept_set:[300,320]
-  };
-
-  // draw edges (simple)
-  const edges = [ ['start','remind'], ['start','set'], ['start','other'], ['remind','accept_remind'], ['set','accept_set'] ];
-  edges.forEach(([a,b])=>{
-    const [x1,y1]=positions[a]; const [x2,y2]=positions[b];
-    const line = document.createElementNS(svgNS,'line');
-    line.setAttribute('x1',x1); line.setAttribute('y1',y1); line.setAttribute('x2',x2); line.setAttribute('y2',y2);
-    line.setAttribute('stroke','rgba(255,255,255,0.06)'); line.setAttribute('stroke-width','2'); svg.appendChild(line);
-  });
-
-  Object.entries(positions).forEach(([id,[x,y]])=>{
-    const g = document.createElementNS(svgNS,'g');
-    g.setAttribute('transform',`translate(${x-40},${y-20})`);
-    const rect = document.createElementNS(svgNS,'rect');
-    rect.setAttribute('width','80'); rect.setAttribute('height','40'); rect.setAttribute('rx','10');
-    rect.setAttribute('fill','#071428'); rect.setAttribute('stroke','rgba(255,255,255,0.06)'); rect.setAttribute('class','node');
-    if(trace.includes(id)) rect.setAttribute('stroke','#7c5cff');
-    const text = document.createElementNS(svgNS,'text');
-    text.setAttribute('x','40'); text.setAttribute('y','25'); text.setAttribute('text-anchor','middle'); text.setAttribute('fill','#cfe9ff');
-    text.setAttribute('font-size','12'); text.textContent = id;
-    g.appendChild(rect); g.appendChild(text); svg.appendChild(g);
-  });
-
-  container.appendChild(svg);
 }
