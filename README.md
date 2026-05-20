@@ -1,4 +1,4 @@
-# Theory of Computation — Interactive Demo Project
+# CompVIZ
 
 A comprehensive course project demonstrating all five units of Theory of Computation through a single, cohesive intent-aware parsing system with interactive visualizations.
 
