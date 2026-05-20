@@ -24,7 +24,7 @@
      </rect>
     </property>
     <property name="text">
-     <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:26pt;&quot;&gt;编译原理 XLEX-词法自动生成器&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+     <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:26pt;&quot;&gt;Theory of Computation XLEX Lexical Analyzer Generator&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
     </property>
    </widget>
    <widget class="QTableWidget" name="tableWidget">
@@ -57,7 +57,7 @@
      </rect>
     </property>
     <property name="text">
-     <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:12pt;&quot;&gt;作者 关竣佑 GitHub仓库：&lt;/span&gt;&lt;/p&gt;&lt;p&gt;&lt;span style=&quot; font-size:12pt;&quot;&gt;https://github.com/guanjunyou/LexicalAnalysisGenerator&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+     <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:12pt;&quot;&gt;Author: Guan Junyou GitHub repository:&lt;/span&gt;&lt;/p&gt;&lt;p&gt;&lt;span style=&quot; font-size:12pt;&quot;&gt;https://github.com/guanjunyou/LexicalAnalysisGenerator&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
     </property>
    </widget>
    <widget class="QLabel" name="label">
@@ -70,7 +70,7 @@
      </rect>
     </property>
     <property name="text">
-     <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:24pt;&quot;&gt;请输入正则表达式：&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+     <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:24pt;&quot;&gt;Enter regular expression:&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
     </property>
    </widget>
    <widget class="QPushButton" name="pushButton">
@@ -83,7 +83,7 @@
      </rect>
     </property>
     <property name="text">
-     <string>开始分析</string>
+     <string>Start Analysis</string>
     </property>
    </widget>
    <widget class="QPushButton" name="pushButton_2">
@@ -96,7 +96,7 @@
      </rect>
     </property>
     <property name="text">
-     <string>输出NFA</string>
+     <string>Output NFA</string>
     </property>
    </widget>
    <widget class="QPushButton" name="pushButton_3">
@@ -109,7 +109,7 @@
      </rect>
     </property>
     <property name="text">
-     <string>输出DFA</string>
+     <string>Output DFA</string>
     </property>
    </widget>
    <widget class="QPushButton" name="pushButton_4">
@@ -122,7 +122,7 @@
      </rect>
     </property>
     <property name="text">
-     <string>输出最小化DFA</string>
+     <string>Output Minimized DFA</string>
     </property>
    </widget>
    <widget class="QPushButton" name="pushButton_5">
@@ -135,7 +135,7 @@
      </rect>
     </property>
     <property name="text">
-     <string>生成c++词法分析代码</string>
+     <string>Generate C++ Lexer Code</string>
     </property>
    </widget>
    <widget class="QTextEdit" name="textEdit">
@@ -163,7 +163,7 @@
      </rect>
     </property>
     <property name="text">
-     <string>保存正则表达式</string>
+     <string>Save Regular Expression</string>
     </property>
    </widget>
    <widget class="QPushButton" name="pushButton_7">
@@ -176,7 +176,7 @@
      </rect>
     </property>
     <property name="text">
-     <string>从文件载入正则表达式</string>
+     <string>Load Regular Expression File</string>
     </property>
    </widget>
   </widget>

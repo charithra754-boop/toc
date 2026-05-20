@@ -1,7 +1,7 @@
 /**
-  作者：华南师范大学 关竣佑
+  Author: Guan Junyou
   2023.10.14
-  版权所有 翻版必究
+  All rights reserved.
   */
 
 #include "parsing.h"
@@ -48,14 +48,14 @@ map<char, int> priorityMap;
 set<char> operatorChar;
 set<char> operatorCharTmp;
 
-// 定义 DFA 结点
+//  DFA 
 struct DFANode {
     int id;
     vector<pair<char, DFANode*>> transitions;
     set<int> nfaNodes;
-    bool isAccepting; // 是否终态 若一个DFA结点包含一个终态的NFA结点，则该DFA结点为终态
-    bool isStarting; // 起点
-    int SDFANum; // 化简后所属的  DFA 结点
+    bool isAccepting; //  DFANFADFA
+    bool isStarting; // 
+    int SDFANum; //   DFA 
 
     DFANode() {
         isAccepting = false;
@@ -65,7 +65,7 @@ struct DFANode {
     }
 };
 
-// 简化后的 DFA 结点
+//  DFA 
 struct SimplifyDFANode {
     int id;
     vector<pair<char, SimplifyDFANode*>> transitions;
@@ -80,12 +80,12 @@ struct SimplifyDFANode {
     }
 };
 
-// 定义NFA的节点
+// NFA
 struct State {
     int id;
     vector<pair<char, State*>> transitions;
-    bool isAccepting; // 是否终态
-    bool isStarting; // 是否起点
+    bool isAccepting; // 
+    bool isStarting; // 
     State() {
         isAccepting = false;
         isStarting = false;
@@ -102,27 +102,27 @@ map<int, State*> NFAMap;
 map<int, SimplifyDFANode*> SDFAMap;
 queue<SimplifyDFANode*> SDFAQue;
 
-// 整理成输出格式
+// 
 string nfaTable[1000][1000];
 string dfaTable[1000][1000];
 string sdfaTable[1000][1000];
 
 
-// 是否为变量
+// 
 bool isWordChar(char c) {
     if (c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z')
         return true;
     return false;
 }
 
-// 定义NFA图的数据结构
+// NFA
 struct NFA {
     State* start;
     State* end;
 };
 
 
-// 创建一个新的NFA节点
+// NFA
 State* createState(int id, bool isAccepting = false) {
     State* newState = new State;
     newState->id = id;
@@ -132,7 +132,7 @@ State* createState(int id, bool isAccepting = false) {
     return newState;
 }
 
-// 执行NFA图的连接操作
+// NFA
 NFA concatenate(NFA nfa1, NFA nfa2) {
     nfa1.end->transitions.push_back(make_pair('#', nfa2.start));
     nfa1.end->isAccepting = false;
@@ -141,7 +141,7 @@ NFA concatenate(NFA nfa1, NFA nfa2) {
     return { nfa1.start, nfa2.end };
 }
 
-// 执行NFA图的选择操作
+// NFA
 NFA unionNFA(NFA nfa1, NFA nfa2) {
     State* newStart = createState(stateCounter++);
     newStart->isStarting = true;
@@ -164,7 +164,7 @@ NFA unionNFA(NFA nfa1, NFA nfa2) {
     return { newStart, newEnd };
 }
 
-// 执行NFA图的闭包操作
+// NFA
 NFA closure(NFA nfa) {
     State* newStart = createState(stateCounter++);
     newStart->isStarting = true;
@@ -174,11 +174,11 @@ NFA closure(NFA nfa) {
     nfa.end->transitions.push_back(make_pair('#', newEnd));
     G[nfa.end->id].push_back(newEnd);
 
-    // 产生正闭包
+    // 
     nfa.end->transitions.push_back(make_pair('#', nfa.start));
     G[nfa.end->id].push_back(nfa.start);
 
-    //绕路走的零环
+    //
    newStart->transitions.push_back(make_pair('#', newEnd));
     G[newStart->id].push_back(newEnd);
 
@@ -188,7 +188,7 @@ NFA closure(NFA nfa) {
     return { newStart, newEnd };
 }
 
-// 执行NFA图的正闭包操作
+// NFA
 NFA closurePostive(NFA nfa) {
 
     State* newStart = createState(stateCounter++);
@@ -199,7 +199,7 @@ NFA closurePostive(NFA nfa) {
     nfa.end->transitions.push_back(make_pair('#', newEnd));
     G[nfa.end->id].push_back(newEnd);
 
-    // 产生正闭包
+    // 
     nfa.end->transitions.push_back(make_pair('#', nfa.start));
     G[nfa.end->id].push_back(nfa.start);
 
@@ -209,7 +209,7 @@ NFA closurePostive(NFA nfa) {
     return { newStart, newEnd };
 }
 
-// NFA 图的可选操作
+// NFA 
 NFA select(NFA nfa) {
     State* newStart = createState(stateCounter++);
     newStart->isStarting = true;
@@ -243,7 +243,7 @@ string intToString(int num) {
     return result;
 }
 
-// 将正则表达式转换为NFA图
+// NFA
 NFA regexToNFA(string regex) {
     stack<NFA> nfaStack;
     stack<char> operatorStack;
@@ -290,13 +290,13 @@ NFA regexToNFA(string regex) {
             operatorStack.pop(); // Pop the '('
         }
         else if (c == '*') {
-            //cout << "闭包" << endl;
+            //cout << "" << endl;
             NFA nfa1 = nfaStack.top();
             nfaStack.pop();
             nfaStack.push(closure(nfa1));
         }
         else if (c == '+') {
-            //cout << "正闭包" << endl;
+            //cout << "" << endl;
             NFA nfa1 = nfaStack.top();
             nfaStack.pop();
             nfaStack.push(closurePostive(nfa1));
@@ -331,7 +331,7 @@ NFA regexToNFA(string regex) {
             //cout << "push :" << c << endl;
             operatorStack.push(c);
         }
-        else {  // 不是运算符，建立新的边
+        else {  // 
             State* state1 = createState(stateCounter++);
             state1->isStarting = true;
             State* state2 = createState(stateCounter++,true);
@@ -371,40 +371,40 @@ NFA regexToNFA(string regex) {
 
 
 void dfs(int node) {
-    //把这个 NFA 结点加入到新的 DFA 结点
+    // NFA  DFA 
     if (node == 0)
     {
         node = 0;
     }
     dfaNodes[dfaNodes.size() - 1]->nfaNodes.insert(node);
     if (NFAMap[node]->isAccepting == true) {
-        dfaNodes[dfaNodes.size() - 1]->isAccepting = true; // 设置终态
+        dfaNodes[dfaNodes.size() - 1]->isAccepting = true; // 
     }
     if (NFAMap[node]->isStarting == true) {
-        dfaNodes[dfaNodes.size() - 1]->isStarting = true; // 设置初态
+        dfaNodes[dfaNodes.size() - 1]->isStarting = true; // 
     }
     if (outDegree[node] <= 0) {
-        return; // 到达边缘点了
+        return; // 
     }
-    //遍历下一个
+    //
     for (int i = 0; i < G[node].size(); i++) {
         dfs(G[node][i]->id);
     }
 }
 
 void dfsFindDFA(State* node, set<int>* nfaSet) {
-    //把这个 NFA 结点加入到新的 DFA 结点
+    // NFA  DFA 
     nfaSet->insert(node->id);
     if (outDegree[node->id] <= 0) {
-        return; // 到达边缘点了
+        return; // 
     }
-    //遍历下一个
+    //
     for (int i = 0; i < G[node->id].size(); i++) {
         dfsFindDFA(G[node->id][i], nfaSet);
     }
 }
 
-// 找这个NFA 的 # 边缘点的下一个 DFA 点是什么
+// NFA  #  DFA 
 vector<pair<char,DFANode*>> findNextDFANode(State* node) {
     vector<pair<char, DFANode*>> dfas;
     if (node->transitions.size() == 0)
@@ -438,7 +438,7 @@ void UnionDFA(DFANode* dfa1, DFANode* dfa2) {
 }
 
 void NFAtoDFA() {
-    // 计算每个 DFA 结点拥有哪些 NFA 结点
+    //  DFA  NFA 
     for (int i = 0; i < stateCounter; i++) {
         if (inDegree[i] <= 0) {
             DFANode* NewDFANode = new DFANode();
@@ -448,32 +448,32 @@ void NFAtoDFA() {
     }
 
     //for (int i = 0; i < DFANodeCounter; i++) {
-    //    cout << i << " 拥有的NFA结点 " << endl;
+    //    cout << i << " NFA " << endl;
     //    for (auto nfa : dfaNodes[i]->nfaNodes) {
     //        cout << nfa;
     //    }
     //    cout << endl;
     //}
 
-    //合并相同字母边指向的 DFA点
+    // DFA
     vector<pair<DFANode*,DFANode*>> unionPair;
 
     for (int i = 0; i < dfaNodes.size(); i++) {
         DFANode* dfaNode = dfaNodes[i];
         map<char, DFANode*> opDfaMap;
-        for (auto nfa : dfaNode->nfaNodes) { // 遍历每一个结点
+        for (auto nfa : dfaNode->nfaNodes) { // 
 
-            if (outDegree[nfa] > 0) // 不是边缘
+            if (outDegree[nfa] > 0) // 
                 continue;
             vector<pair<char, DFANode*>> nextNode = findNextDFANode(NFAMap[nfa]);
             if (nextNode.empty()) {
                 continue;
             }
-            if (NFAMap[nfa]->transitions.size() == 0) // 后面一条边也没有
+            if (NFAMap[nfa]->transitions.size() == 0) // 
                 continue;
             for (int j = 0; j < nextNode.size(); j++) {
                 if (opDfaMap.find(nextNode[j].first) != opDfaMap.end()) {
-                    //UnionDFA(opDfaMap[nextNode[j].first], nextNode[j].second); // 把 后面合并到前面
+                    //UnionDFA(opDfaMap[nextNode[j].first], nextNode[j].second); //  
                     //i--;
                     DFANode* oldDfa = opDfaMap[nextNode[j].first];
                     unionPair.push_back(make_pair(oldDfa,nextNode[j].second));
@@ -502,7 +502,7 @@ void NFAtoDFA() {
     }
 
 
-    // 连接 DFA 点
+    //  DFA 
 
 
     for (int i = 0; i < DFANodeCounter; i++) {
@@ -514,8 +514,8 @@ void NFAtoDFA() {
             nextNFAs.insert(make_pair(op,tmp));
         }
 
-        for (auto nfa : dfaNode->nfaNodes) { // 遍历每一个结点
-            if (outDegree[nfa] > 0) // 不是边缘
+        for (auto nfa : dfaNode->nfaNodes) { // 
+            if (outDegree[nfa] > 0) // 
                 continue;
             if(NFAMap[nfa]->transitions.size() == 0)
                 continue;
@@ -552,11 +552,11 @@ void NFAtoDFA() {
         }
         cout << endl;
     }
-    cout << " ------  DFA图结束 ---------" << endl;
+    cout << " ------  DFA ---------" << endl;
 }
 
 vector<SimplifyDFANode*> SplitDFANode(SimplifyDFANode* node, char op) {
-    map<int, set<DFANode*>> splitMap; // 若 经过这个运算符没有下一个点则记下一个点为 -1
+    map<int, set<DFANode*>> splitMap; //   -1
     vector<SimplifyDFANode*> ans;
     for (auto dfanode : node->dfaNodes) {
         int nextNode = -1;
@@ -566,7 +566,7 @@ vector<SimplifyDFANode*> SplitDFANode(SimplifyDFANode* node, char op) {
                 nextNode = tmp.second->id;
             }
         }
-        if (splitMap.find(nextNode) == splitMap.end()) { // 第一次放入
+        if (splitMap.find(nextNode) == splitMap.end()) { // 
             set<DFANode*> newset;
             newset.insert(dfanode);
             splitMap.insert(make_pair(nextNode, newset));
@@ -577,11 +577,11 @@ vector<SimplifyDFANode*> SplitDFANode(SimplifyDFANode* node, char op) {
             splitMap[nextNode] = newset;
         }
     }
-    // 建立新的 简化DFA 结点
+    //  DFA 
     int i = 0;
     for (auto dfaset : splitMap) {
         SimplifyDFANode* newDfaNode;
-        if (i == 0) { // 填了那个删掉的 拆分前的DFA 结点的编号的坑,防止化简后的DFA结点编号不连续
+        if (i == 0) { //  DFA ,DFA
             newDfaNode = new SimplifyDFANode(node->id);
         }
         else {
@@ -592,7 +592,7 @@ vector<SimplifyDFANode*> SplitDFANode(SimplifyDFANode* node, char op) {
             else
                 newDfaNode = new SimplifyDFANode(SimplifyDFACounter++);
         }
-        for (auto dfanode : dfaset.second) { // 重写设置是否为终态
+        for (auto dfanode : dfaset.second) { // 
             if (dfanode->isAccepting) {
                 newDfaNode->isAccepting = true;
             }
@@ -608,7 +608,7 @@ vector<SimplifyDFANode*> SplitDFANode(SimplifyDFANode* node, char op) {
 }
 
 void SimplifyDFA() {
-    // 把 DFA 结点分成非终态 和 终态 两个类型
+    //  DFA    
     set<DFANode*> NotACSet;
     set<DFANode*> ACSet;
 
@@ -642,7 +642,7 @@ void SimplifyDFA() {
     for (auto op : operatorChar) {
 
         int size = SDFAQue.size();
-        // 类似于层序遍历那样, 每个符号边筛一次
+        // , 
         for (int i = 0; i < size; i++) {
             SimplifyDFANode* dfanode = SDFAQue.front();
             SDFAQue.pop();
@@ -663,13 +663,13 @@ void SimplifyDFA() {
     }
 
     //for (auto sdfa : SDFAMap) {
-    //    cout << sdfa.first << " 含有 : ";
+    //    cout << sdfa.first << "  : ";
     //    for (auto dfa : sdfa.second->dfaNodes) {
     //        cout << dfa->id << " ";
     //    }
     //    cout << endl;
     //}
-    //cout << " ----------  上面是简化后的 DFA 每个结点所包含的化简前的结点 -----------" << endl;
+    //cout << " ----------   DFA  -----------" << endl;
 
 }
 
@@ -683,7 +683,7 @@ void BuildSimplifyDFA() {
                 int nextSdfa = nextNode.second->SDFANum;
                 bool hasAdd = false;
                 for (int i = 0; i < sdfa.second->transitions.size(); i++) {
-                    // 检查这条边是否已经加入
+                    // 
                     if (sdfa.second->transitions[i].first == op && sdfa.second->transitions[i].second->id == nextSdfa)
                         hasAdd = true;
                 }
@@ -702,7 +702,7 @@ void BuildSimplifyDFA() {
         }
         cout << endl;
     }
-    cout << " ----------  上面是简化后的 DFA -----------" << endl;
+    cout << " ----------   DFA -----------" << endl;
 }
 
 
@@ -768,7 +768,7 @@ string getAllNfaFromDFANode(DFANode* dfaNode) {
 }
 
 void DisplayDFA() {
-    cout << "------ 测试 ----------" << endl;
+    cout << "------  ----------" << endl;
     int rowNum = DFANodeCounter;
     int colNum = operatorChar.size() + 2;
     sort(dfaNodes.begin(), dfaNodes.end(), cmp);
@@ -873,7 +873,7 @@ void getCode(int v,vector<string> &lines) {
     if (SDFAMap[v]->isAccepting)
         lines.push_back(done);
     vector<char> while_char, if_char;
-    //首先收集结点v有多少条指向自己的边，收集该边的运算符
+    //v
     for (auto edge : SDFAMap[v]->transitions) {
         if (edge.second->id == v)
             while_char.push_back(edge.first);
@@ -881,8 +881,8 @@ void getCode(int v,vector<string> &lines) {
             if_char.push_back(edge.first);
     }
     if (!while_char.empty()) {
-        // 如果不为空，说明存在指向自身的边，这个时候就要生成while语句
-        //生成的对应C语言分析程序，首句为“char ch=getChar()”
+        // while
+        //Cchar ch=getChar()
         lines.push_back("char ch = getchar();");
         string line = "while(";
         int i = 0;
@@ -914,7 +914,7 @@ void getCode(int v,vector<string> &lines) {
         }
 
     }
-    //处理完指向自身结点的边后，接下里处理指向别的结点的边
+    //
     if (!if_char.empty())
     {
         if (while_char.empty())
@@ -975,7 +975,7 @@ void ShowCode() {
     out.close();
 }
 
-// 生成C++代码，将代码写入到dfa.cpp文件中
+// C++dfa.cpp
 void generateCode() {
     ofstream outputFile("Code.cpp");
 
@@ -1085,7 +1085,7 @@ void calculateDegree() {
 }
 
 
-void Parsing::on_pushButton_clicked()//开始分析
+void Parsing::on_pushButton_clicked()//
 {
 
     stateCounter = 0;
@@ -1126,15 +1126,15 @@ void Parsing::on_pushButton_clicked()//开始分析
 
 
 
-    //清空完毕
+    //
     QFont font;
     font.setPointSize(30);
     ui->textBrowser->setFont(font);
     ui->textBrowser->show();
-    ui->textBrowser->setText("分析成功，请继续下一步");
+    ui->textBrowser->setText("Analysis complete. Continue to the next step.");
     ui->tableWidget->close();
 
-    // 设置优先级
+    // 
     priorityMap.insert(make_pair('?', 3));
     priorityMap.insert(make_pair('*',3));
     priorityMap.insert(make_pair('+',3));
@@ -1142,7 +1142,7 @@ void Parsing::on_pushButton_clicked()//开始分析
     priorityMap.insert(make_pair('|', 1));
 
     string regex;
-    // cout << "输入正则表达式: ";
+    // cout << ": ";
     //regex = ui->lineEdit->text().toStdString();
     QString text = ui->textEdit->toPlainText();
     regex = text.toStdString();
@@ -1172,11 +1172,11 @@ void Parsing::on_pushButton_clicked()//开始分析
     SimplifyDFA();
     BuildSimplifyDFA();
 
-    cout << " ------------- 开始输出 NFA 表--------------" << endl;
+    cout << " -------------  NFA --------------" << endl;
     DisplayNFA();
-    cout << " ------------- 开始输出 DFA 表--------------" << endl;
+    cout << " -------------  DFA --------------" << endl;
     DisplayDFA();
-    cout << " ------------- 开始输出化简后的 DFA 表--------------" << endl;
+    cout << " -------------  DFA --------------" << endl;
     DisplaySimplifyDFA();
     //ShowCode();
     generateCode();
@@ -1193,8 +1193,8 @@ void Parsing::on_pushButton_2_clicked()//NFA
     QFont Font;
     Font.setPointSize(15);
     ui->tableWidget->setFont(Font);
-    ui->tableWidget->setItem(0, 0, new QTableWidgetItem("起，终点"));
-    ui->tableWidget->setItem(0, 1, new QTableWidgetItem("点\\边"));
+    ui->tableWidget->setItem(0, 0, new QTableWidgetItem(""));
+    ui->tableWidget->setItem(0, 1, new QTableWidgetItem("\\"));
     int temp = 2;
     for (auto op : operatorCharTmp) {
         ui->tableWidget->setItem(0, temp, new QTableWidgetItem(QString(op)));
@@ -1220,8 +1220,8 @@ void Parsing::on_pushButton_3_clicked()//DFA
     QFont Font;
     Font.setPointSize(15);
     ui->tableWidget->setFont(Font);
-    ui->tableWidget->setItem(0, 0, new QTableWidgetItem("起，终点"));
-    ui->tableWidget->setItem(0, 1, new QTableWidgetItem("点\\边"));
+    ui->tableWidget->setItem(0, 0, new QTableWidgetItem(""));
+    ui->tableWidget->setItem(0, 1, new QTableWidgetItem("\\"));
     int temp = 2;
     for (auto op : operatorChar) {
         ui->tableWidget->setItem(0, temp, new QTableWidgetItem(QString(op)));
@@ -1236,7 +1236,7 @@ void Parsing::on_pushButton_3_clicked()//DFA
     ui->tableWidget->resizeRowsToContents();
 }
 
-void Parsing::on_pushButton_4_clicked()//最小化NFA
+void Parsing::on_pushButton_4_clicked()//NFA
 {
 
     ui->textBrowser->close();
@@ -1248,8 +1248,8 @@ void Parsing::on_pushButton_4_clicked()//最小化NFA
     QFont Font;
     Font.setPointSize(15);
     ui->tableWidget->setFont(Font);
-    ui->tableWidget->setItem(0, 0, new QTableWidgetItem("起，终点"));
-    ui->tableWidget->setItem(0, 1, new QTableWidgetItem("点\\边"));
+    ui->tableWidget->setItem(0, 0, new QTableWidgetItem(""));
+    ui->tableWidget->setItem(0, 1, new QTableWidgetItem("\\"));
     int temp = 2;
     for (auto op : operatorChar) {
         ui->tableWidget->setItem(0, temp, new QTableWidgetItem(QString(op)));
@@ -1284,15 +1284,15 @@ void Parsing::on_pushButton_5_clicked()
 //{
 //    QString text = ui->textEdit->toPlainText();
 //    string regex = text.toStdString();
-//    // 打开一个文件流
+//    // 
 //    ofstream outputFile("regex.txt");
 
-//    // 检查文件是否成功打开
+//    // 
 //    if (outputFile.is_open()) {
-//        // 写入字符串到文件
+//        // 
 //        outputFile << regex;
 
-//        // 关闭文件流
+//        // 
 //        outputFile.close();
 //    }
 //}
@@ -1301,23 +1301,23 @@ void Parsing::on_pushButton_6_clicked()
     QString text = ui->textEdit->toPlainText();
     string regex = text.toStdString();
 
-    // 使用文件对话框获取用户选择的保存目录
-    QString saveDirectory = QFileDialog::getExistingDirectory(this, "选择保存目录", QDir::homePath());
+    // 
+    QString saveDirectory = QFileDialog::getExistingDirectory(this, "Choose directory", QDir::homePath());
 
-    // 检查用户是否选择了目录
+    // 
     if (!saveDirectory.isEmpty()) {
-        // 构造要保存的文件路径
+        // 
         QString filePath = saveDirectory + "/regex.txt";
 
-        // 打开一个文件流
+        // 
         ofstream outputFile(filePath.toStdString());
 
-        // 检查文件是否成功打开
+        // 
         if (outputFile.is_open()) {
-            // 写入字符串到文件
+            // 
             outputFile << regex;
 
-            // 关闭文件流
+            // 
             outputFile.close();
         }
     }
@@ -1326,33 +1326,33 @@ void Parsing::on_pushButton_6_clicked()
 
 void Parsing::on_pushButton_7_clicked()
 {
-    // 打开文件选择对话框以获取用户选择的文件
-    QString filePath = QFileDialog::getOpenFileName(this, "选择文件", QDir::homePath(), "文本文件 (*.txt);;所有文件 (*.*)");
+    // 
+    QString filePath = QFileDialog::getOpenFileName(this, "Choose file", QDir::homePath(), " (*.txt);; (*.*)");
 
-    // 检查用户是否取消了文件选择
+    // 
     if (filePath.isEmpty()) {
         return;
     }
 
-    // 打开选择的文件
+    // 
     QFile file(filePath);
 
-    // 检查文件是否成功打开
+    // 
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        QMessageBox::critical(this, "错误", "无法打开文件");
+        QMessageBox::critical(this, "Error", "Failed to open file");
         return;
     }
 
-    // 创建文本流来读取文件内容
+    // 
     QTextStream in(&file);
 
-    // 读取文件中的文本到一个QString
+    // QString
     QString fileContents = in.readAll();
 
-    // 关闭文件
+    // 
     file.close();
 
-    // 在这里，fileContents 包含了文件的文本内容，你可以对它进行操作，例如显示在UI上或者进行其他处理
-    // 例如，将文本内容显示在一个文本编辑框中：
+    // fileContents UI
+    // 
     ui->textEdit->setPlainText(fileContents);
 }
